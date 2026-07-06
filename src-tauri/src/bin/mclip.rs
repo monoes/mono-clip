@@ -809,6 +809,7 @@ fn mcp_delete_folder(name: String) -> Result<String, String> {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 fn main() {
+    monoclip_lib::crash_report::install("mclip");
     let cli = Cli::parse();
     match cli.command {
         Cmd::List { folder, search, limit } => cmd_list(folder, search, limit),

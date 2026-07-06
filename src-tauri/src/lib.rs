@@ -1,5 +1,6 @@
 pub mod clipboard;
 pub mod commands;
+pub mod crash_report;
 pub mod db;
 pub mod shortcuts;
 pub mod state;

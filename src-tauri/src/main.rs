@@ -17,6 +17,7 @@ use monoclip_lib::{
 
 fn main() {
     env_logger::init();
+    monoclip_lib::crash_report::install("monoclip");
 
     let db = connection::open_database().expect("Failed to open database");
     let app_state = AppState::new(db);
