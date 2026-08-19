@@ -4,6 +4,7 @@
   import { settingsStore } from "$lib/stores/settings.svelte";
   import { runAutoCleanup, clearAllClips, installCli, checkAccessibility, openAccessibilitySettings } from "$lib/api/tauri";
   import { clipsStore } from "$lib/stores/clips.svelte";
+  import { isMac, formatShortcut } from "$lib/utils/platform";
 
   interface Props {
     open?: boolean;
@@ -49,7 +50,7 @@
 
   $effect(() => {
     if (open) {
-      refreshAccessibility();
+      if (isMac) refreshAccessibility();
       getVersion().then((v) => { appVersion = v; });
     }
   });
@@ -85,39 +86,41 @@
           <h3 class="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">Permissions</h3>
           <div class="rounded-xl border border-white/8 overflow-hidden">
 
-            <!-- Accessibility row -->
-            <div class="p-3 flex items-start gap-3">
-              <div class="mt-0.5 text-base leading-none">
-                {accessibilityGranted === true ? '✅' : accessibilityGranted === false ? '⚠️' : '⏳'}
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-sm font-medium text-white/80">Accessibility</span>
-                  {#if accessibilityGranted === false}
-                    <button
-                      class="text-xs px-2.5 py-1 rounded-lg bg-[#6366f1]/20 border border-[#6366f1]/30
-                             text-[#a5b4fc] hover:bg-[#6366f1]/30 transition-colors shrink-0"
-                      onclick={openAccessibilitySettings}
-                    >Open Settings →</button>
-                  {/if}
+            <!-- Accessibility row (macOS only — Windows paste needs no permission) -->
+            {#if isMac}
+              <div class="p-3 flex items-start gap-3">
+                <div class="mt-0.5 text-base leading-none">
+                  {accessibilityGranted === true ? '✅' : accessibilityGranted === false ? '⚠️' : '⏳'}
                 </div>
-                <p class="text-xs text-white/35 mt-1 leading-relaxed">
-                  {#if accessibilityGranted === true}
-                    Granted — global shortcut and paste-on-click are working.
-                  {:else if accessibilityGranted === false}
-                    Not granted. MonoClip needs this to detect your keyboard shortcut
-                    (<span class="font-mono">⌘⇧V</span>) and to auto-paste when you click a clip.<br/>
-                    Click <strong class="text-white/55">Open Settings →</strong>, then add
-                    <strong class="text-white/55">MonoClip</strong> and enable the toggle.
-                    Reopen this panel to confirm.
-                  {:else}
-                    Checking…
-                  {/if}
-                </p>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-white/80">Accessibility</span>
+                    {#if accessibilityGranted === false}
+                      <button
+                        class="text-xs px-2.5 py-1 rounded-lg bg-[#6366f1]/20 border border-[#6366f1]/30
+                               text-[#a5b4fc] hover:bg-[#6366f1]/30 transition-colors shrink-0"
+                        onclick={openAccessibilitySettings}
+                      >Open Settings →</button>
+                    {/if}
+                  </div>
+                  <p class="text-xs text-white/35 mt-1 leading-relaxed">
+                    {#if accessibilityGranted === true}
+                      Granted — global shortcut and paste-on-click are working.
+                    {:else if accessibilityGranted === false}
+                      Not granted. MonoClip needs this to detect your keyboard shortcut
+                      (<span class="font-mono">{formatShortcut("⌘⇧V")}</span>) and to auto-paste when you click a clip.<br/>
+                      Click <strong class="text-white/55">Open Settings →</strong>, then add
+                      <strong class="text-white/55">MonoClip</strong> and enable the toggle.
+                      Reopen this panel to confirm.
+                    {:else}
+                      Checking…
+                    {/if}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div class="border-t border-white/6 mx-3"></div>
+              <div class="border-t border-white/6 mx-3"></div>
+            {/if}
 
             <!-- Launch at Login row -->
             <div class="p-3 flex items-start gap-3">

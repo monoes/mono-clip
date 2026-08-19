@@ -61,6 +61,52 @@ fn capture_selected_text(app: &AppHandle) -> Option<String> {
     }
 }
 
+/// Windows variant: same sentinel strategy, but sends Ctrl+C via SendInput instead
+/// of osascript, and waits slightly longer for the copy to land.
+#[cfg(target_os = "windows")]
+fn capture_selected_text(app: &AppHandle) -> Option<String> {
+    // 1. Save current clipboard
+    let original = app.clipboard().read_text().ok().unwrap_or_default();
+
+    // 2. Write a unique sentinel so we can tell if Ctrl+C actually wrote something
+    let sentinel = format!("__monoclip_sentinel_{}", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos());
+    if app.clipboard().write_text(&sentinel).is_err() {
+        return None;
+    }
+
+    // 3. Simulate Ctrl+C in the frontmost app
+    if crate::keyboard::send_ctrl_c().is_err() {
+        // Restore original clipboard before returning
+        let _ = app.clipboard().write_text(&original);
+        return None;
+    }
+
+    // 4. Brief pause for the local Ctrl+C to land
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
+    // 5. Read the clipboard
+    let current = app.clipboard().read_text().ok().unwrap_or_default();
+
+    // 6. Restore original clipboard
+    let _ = app.clipboard().write_text(&original);
+
+    // If the clipboard still holds our sentinel, Ctrl+C didn't fire (nothing selected).
+    // Also ignore if the clipboard is empty or matches the sentinel.
+    if current.is_empty() || current == sentinel || current.starts_with("__monoclip_sentinel_") {
+        None
+    } else {
+        Some(current)
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn capture_selected_text(_app: &AppHandle) -> Option<String> {
+    None
+}
+
 /// Register a single folder shortcut. Called when a folder is created or its shortcut updated.
 pub fn register_folder_shortcut(
     app: &AppHandle,
@@ -129,11 +175,8 @@ fn register_shortcut(app: &AppHandle, shortcut_str: &str, action: ShortcutAction
         ShortcutAction::SaveToFolder { folder_id, folder_name } => {
             app.global_shortcut().on_shortcut(shortcut, move |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
-                    // Prefer selected text (macOS only); fall back to current clipboard
-                    #[cfg(target_os = "macos")]
+                    // Prefer selected text; fall back to current clipboard
                     let maybe_sel = capture_selected_text(app);
-                    #[cfg(not(target_os = "macos"))]
-                    let maybe_sel: Option<String> = None;
                     let (content, source) = if let Some(sel) = maybe_sel {
                         (sel, "selection")
                     } else {

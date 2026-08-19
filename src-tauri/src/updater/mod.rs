@@ -37,27 +37,62 @@ pub fn check_for_update() -> Option<UpdateInfo> {
         return None;
     }
 
-    // Find the aarch64 DMG asset URL
-    let download_url = json["assets"]
-        .as_array()?
-        .iter()
-        .find_map(|a| {
-            let name = a["name"].as_str()?;
-            if name.ends_with(".dmg") {
-                a["browser_download_url"].as_str().map(|s| s.to_string())
-            } else {
-                None
-            }
-        })
-        // Fallback: construct URL from tag
-        .unwrap_or_else(|| {
-            let v = tag.trim_start_matches('v');
-            format!(
-                "https://github.com/nokhodian/mono-clip/releases/download/{tag}/MonoClip_{v}_aarch64.dmg"
-            )
-        });
+    let download_url = pick_asset_url(&json, &tag);
 
     Some(UpdateInfo { tag, download_url })
+}
+
+fn pick_asset_url(json: &serde_json::Value, tag: &str) -> String {
+    let assets = json["assets"].as_array();
+
+    #[cfg(target_os = "windows")]
+    {
+        let find = |ext: &str| {
+            assets.and_then(|list| {
+                list.iter().find_map(|a| {
+                    let name = a["name"].as_str()?;
+                    if name.ends_with(ext) {
+                        a["browser_download_url"].as_str().map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+        };
+        // Prefer NSIS setup.exe, then .msi
+        find(".exe")
+            .or_else(|| find(".msi"))
+            // Fallback: construct URL from tag
+            .unwrap_or_else(|| {
+                let v = tag.trim_start_matches('v');
+                format!(
+                    "https://github.com/nokhodian/mono-clip/releases/download/{tag}/MonoClip_{v}_x64-setup.exe"
+                )
+            })
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Find the aarch64 DMG asset URL
+        assets
+            .and_then(|list| {
+                list.iter().find_map(|a| {
+                    let name = a["name"].as_str()?;
+                    if name.ends_with(".dmg") {
+                        a["browser_download_url"].as_str().map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+            // Fallback: construct URL from tag
+            .unwrap_or_else(|| {
+                let v = tag.trim_start_matches('v');
+                format!(
+                    "https://github.com/nokhodian/mono-clip/releases/download/{tag}/MonoClip_{v}_aarch64.dmg"
+                )
+            })
+    }
 }
 
 fn is_newer(remote: &str, local: &str) -> bool {
@@ -121,14 +156,22 @@ pub fn apply_update<R: Runtime>(app: &AppHandle<R>) {
 
     let app = app.clone();
     std::thread::spawn(move || {
-        let exe = std::env::current_exe().unwrap_or_default();
-        let path_str = exe.to_string_lossy().to_lowercase();
-        let is_homebrew = path_str.contains("caskroom") || path_str.contains("homebrew");
+        #[cfg(target_os = "windows")]
+        {
+            apply_windows_update(&app, &info);
+        }
 
-        if is_homebrew {
-            apply_homebrew_update(&app);
-        } else {
-            apply_direct_update(&app, &info);
+        #[cfg(not(target_os = "windows"))]
+        {
+            let exe = std::env::current_exe().unwrap_or_default();
+            let path_str = exe.to_string_lossy().to_lowercase();
+            let is_homebrew = path_str.contains("caskroom") || path_str.contains("homebrew");
+
+            if is_homebrew {
+                apply_homebrew_update(&app);
+            } else {
+                apply_direct_update(&app, &info);
+            }
         }
     });
 }
@@ -138,6 +181,66 @@ fn emit_progress<R: Runtime>(app: &AppHandle<R>, msg: &str) {
     let _ = app.emit("update:progress", msg);
 }
 
+#[cfg(target_os = "windows")]
+fn apply_windows_update<R: Runtime>(app: &AppHandle<R>, info: &UpdateInfo) {
+    let is_msi = info.download_url.to_lowercase().ends_with(".msi");
+    let tmp_installer = std::env::temp_dir().join(if is_msi {
+        "MonoClip_setup.msi"
+    } else {
+        "MonoClip_setup.exe"
+    });
+
+    // 1. Download
+    emit_progress(app, &format!("Downloading {}…", info.tag));
+    let response = match ureq::get(&info.download_url)
+        .set("User-Agent", "MonoClip-Updater")
+        .call()
+    {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = app.emit("update:error", format!("Download failed: {e}"));
+            return;
+        }
+    };
+
+    let mut file = match std::fs::File::create(&tmp_installer) {
+        Ok(f) => f,
+        Err(e) => {
+            let _ = app.emit("update:error", format!("Cannot write temp file: {e}"));
+            return;
+        }
+    };
+    if let Err(e) = std::io::copy(&mut response.into_reader(), &mut file) {
+        let _ = app.emit("update:error", format!("Download write failed: {e}"));
+        return;
+    }
+    drop(file);
+
+    // 2. Launch installer (NSIS relaunches the app itself when done)
+    emit_progress(app, "Launching installer…");
+    let launch = if is_msi {
+        std::process::Command::new("msiexec")
+            .arg("/i")
+            .arg(&tmp_installer)
+            .spawn()
+    } else {
+        std::process::Command::new(&tmp_installer).spawn()
+    };
+
+    match launch {
+        Ok(_) => {
+            emit_progress(app, "Installer started — quitting for update…");
+            std::thread::sleep(Duration::from_millis(800));
+            app.exit(0);
+        }
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp_installer);
+            let _ = app.emit("update:error", format!("Failed to launch installer: {e}"));
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
 fn apply_homebrew_update<R: Runtime>(app: &AppHandle<R>) {
     emit_progress(app, "Running brew upgrade --cask mono-clip…");
 
@@ -161,6 +264,7 @@ fn apply_homebrew_update<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn apply_direct_update<R: Runtime>(app: &AppHandle<R>, info: &UpdateInfo) {
     let tmp_dmg = std::env::temp_dir().join("MonoClip_update.dmg");
 
@@ -246,7 +350,11 @@ fn apply_direct_update<R: Runtime>(app: &AppHandle<R>, info: &UpdateInfo) {
 }
 
 /// Launch a fresh copy of the app then quit this instance.
+#[cfg_attr(target_os = "windows", allow(dead_code))]
 fn relaunch<R: Runtime>(app: &AppHandle<R>) {
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new(std::env::current_exe().unwrap_or_default()).spawn();
+    #[cfg(not(target_os = "windows"))]
     let _ = std::process::Command::new("open")
         .args(["-n", "/Applications/MonoClip.app"])
         .spawn();

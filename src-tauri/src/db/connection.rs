@@ -28,8 +28,9 @@ pub fn open_database() -> Result<DbConn> {
 }
 
 fn get_db_dir() -> Result<PathBuf> {
-    let home = std::env::var("HOME")
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."));
+        .ok_or_else(|| anyhow::anyhow!("could not determine home directory"))?;
     Ok(home.join(".monoclip"))
 }

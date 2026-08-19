@@ -2,6 +2,7 @@
   import { createFolder, updateFolder } from "$lib/api/tauri";
   import type { Folder } from "$lib/api/tauri";
   import { foldersStore } from "$lib/stores/folders.svelte";
+  import { isMac, formatShortcut } from "$lib/utils/platform";
   import ShortcutRecorder from "./ShortcutRecorder.svelte";
 
   interface Props {
@@ -69,7 +70,7 @@
       open = false;
       onclose?.();
     }
-    if (e.key === "Enter" && e.metaKey) save();
+    if (e.key === "Enter" && (isMac ? e.metaKey : e.ctrlKey)) save();
   }
 </script>
 
@@ -145,7 +146,7 @@
         </label>
         <ShortcutRecorder bind:value={shortcut} />
         <p class="text-[10px] text-white/25 mt-1.5 leading-relaxed">
-          Click the field then press your combo — e.g. ⌘⌥1.<br/>
+          Click the field then press your combo — e.g. {formatShortcut("⌘⌥1")}.<br/>
           When triggered, selected text is saved (falls back to clipboard).
         </p>
       </div>

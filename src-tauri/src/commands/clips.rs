@@ -127,6 +127,19 @@ fn simulate_paste(_app: &AppHandle) -> anyhow::Result<()> {
             .arg("tell application \"System Events\" to keystroke \"v\" using command down")
             .spawn()?;
     }
+    // Hide the MonoClip window so the user's target app regains foreground focus
+    // before the simulated Ctrl+V lands.
+    #[cfg(target_os = "windows")]
+    {
+        use tauri::Manager;
+        if let Some(window) = _app.get_webview_window("main") {
+            if window.is_visible().unwrap_or(false) {
+                let _ = window.hide();
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        crate::keyboard::send_ctrl_v()?;
+    }
     Ok(())
 }
 

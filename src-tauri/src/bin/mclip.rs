@@ -86,7 +86,9 @@ enum FolderCmd {
 // ── Database helpers ──────────────────────────────────────────────────────────
 
 fn db_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .unwrap_or_else(|| std::ffi::OsString::from("."));
     PathBuf::from(home).join(".monoclip").join("monoclip.db")
 }
 
@@ -169,8 +171,8 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 fn relative_time(updated_at: &str) -> String {
-    // updated_at is stored as SQLite datetime: "2024-01-15 12:34:56"
-    let now = chrono::Local::now().naive_local();
+    // updated_at is stored as SQLite datetime (UTC): "2024-01-15 12:34:56"
+    let now = chrono::Utc::now().naive_utc();
     let parsed = chrono::NaiveDateTime::parse_from_str(updated_at, "%Y-%m-%d %H:%M:%S")
         .unwrap_or(now);
     let diff = now.signed_duration_since(parsed);

@@ -87,7 +87,7 @@ fn run_report(program: &str, prefix_args: &[&str], title: &str, body: &str) -> b
 }
 
 fn save_locally(title: &str, body: &str) {
-    let Ok(home) = std::env::var("HOME") else {
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
         eprintln!("[monoclip] crash occurred, and couldn't save a report (no HOME): {title}");
         return;
     };

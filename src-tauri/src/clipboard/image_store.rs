@@ -7,9 +7,10 @@ use anyhow::Result;
 
 /// Returns the directory where captured images are stored (~/.monoclip/images/).
 pub fn images_dir() -> Result<PathBuf> {
-    let home = std::env::var("HOME")
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."));
+        .unwrap_or_else(|| PathBuf::from("."));
     let dir = home.join(".monoclip").join("images");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)

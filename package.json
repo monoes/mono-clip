@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "build:mclip": "cargo build --bin mclip --release --manifest-path src-tauri/Cargo.toml && cp src-tauri/target/release/mclip \"src-tauri/binaries/mclip-$(rustc -Vv | grep host | cut -d' ' -f2)\""
+    "build:mclip": "node scripts/build-mclip.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

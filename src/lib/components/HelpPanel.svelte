@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatShortcut } from "$lib/utils/platform";
+
   interface Props {
     open?: boolean;
     onclose?: () => void;
@@ -99,7 +101,7 @@ mclip get 7 | pbcopy
           ] as [action, keys]}
             <div class="flex items-center justify-between">
               <span class="text-sm text-white/65">{action}</span>
-              <kbd class="font-mono text-xs bg-white/8 border border-white/10 rounded-md px-2 py-0.5 text-white/70">{keys}</kbd>
+              <kbd class="font-mono text-xs bg-white/8 border border-white/10 rounded-md px-2 py-0.5 text-white/70">{formatShortcut(keys)}</kbd>
             </div>
           {/each}
         </div>
