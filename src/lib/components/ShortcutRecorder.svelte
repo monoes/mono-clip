@@ -6,7 +6,8 @@
   let { value = $bindable(""), onchange }: Props = $props();
 
   let recording = $state(false);
-  let inputEl: HTMLInputElement;
+  let saved = $state(false);
+  let inputEl: HTMLDivElement;
 
   // Map browser key names → Tauri shortcut format
   const KEY_MAP: Record<string, string> = {
@@ -57,6 +58,12 @@
       onchange?.(shortcut);
       recording = false;
       inputEl.blur();
+
+      // Recording ending can otherwise look identical to nothing happening
+      // (e.g. re-recording the same combo redisplays the same text), so flash
+      // an explicit confirmation regardless of whether the value changed.
+      saved = true;
+      setTimeout(() => { saved = false; }, 1200);
     }
   }
 
@@ -76,21 +83,34 @@
 </script>
 
 <div class="relative">
-  <input
+  <!--
+    A real <input readonly> here crashes WebKitGTK on Linux: the GTK input-method
+    context attaches on focus, and when the value flips to "" while recording,
+    WebKit computes a substring on stale offsets and hits
+    `g_utf8_substring: assertion 'end_pos >= start_pos'`, taking down the render
+    process. We never let the OS edit this field's text anyway, so a plain
+    focusable div gets the same UX without touching the IME code path.
+  -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <div
     bind:this={inputEl}
-    type="text"
-    readonly
-    value={recording ? "" : value}
-    placeholder={recording ? "Press shortcut…" : value ? value : "Click to record…"}
-    class="w-full rounded-lg px-3 py-2 text-sm font-mono outline-none
+    role="textbox"
+    aria-readonly="true"
+    aria-label={recording ? "Press shortcut" : value || "Click to record shortcut"}
+    tabindex="0"
+    class="w-full rounded-lg px-3 py-2 text-sm font-mono outline-none truncate
            cursor-pointer select-none transition-all duration-150
            {recording
-             ? 'bg-accent/10 border border-accent/60 text-accent placeholder-accent/50 ring-2 ring-accent/20'
-             : 'bg-white/5 border border-white/10 text-white/90 placeholder-white/30 hover:border-white/20'}"
+             ? 'bg-accent/10 border border-accent/60 text-accent/50 ring-2 ring-accent/20'
+             : saved
+               ? 'bg-green-500/10 border border-green-500/50 text-green-400'
+               : value
+                 ? 'bg-white/5 border border-white/10 text-white/90 hover:border-white/20'
+                 : 'bg-white/5 border border-white/10 text-white/30 hover:border-white/20'}"
     onfocus={startRecording}
     onblur={stopRecording}
     onkeydown={handleKeydown}
-  />
+  >{recording ? "Press shortcut…" : saved ? `✓ Saved: ${value}` : value ? value : "Click to record…"}</div>
 
   <!-- Pulse dot while recording -->
   {#if recording}

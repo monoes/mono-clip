@@ -5,6 +5,7 @@
   import { runAutoCleanup, clearAllClips, installCli, checkAccessibility, openAccessibilitySettings } from "$lib/api/tauri";
   import { clipsStore } from "$lib/stores/clips.svelte";
   import { isMac, formatShortcut } from "$lib/utils/platform";
+  import ShortcutRecorder from "./ShortcutRecorder.svelte";
 
   interface Props {
     open?: boolean;
@@ -283,16 +284,10 @@
         <!-- Shortcuts -->
         <section>
           <h3 class="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">Master Shortcut</h3>
-          <input
-            type="text"
+          <ShortcutRecorder
             value={s.masterShortcut}
-            onblur={(e) => settingsStore.update({ masterShortcut: (e.target as HTMLInputElement).value })}
-            class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2
-                   text-sm text-white/90 font-mono outline-none focus:border-accent/50"
+            onchange={(shortcut) => settingsStore.update({ masterShortcut: shortcut })}
           />
-          <p class="text-xs text-white/30 mt-1.5">
-            Format: CmdOrCtrl+Shift+V
-          </p>
         </section>
 
         <!-- Version -->
