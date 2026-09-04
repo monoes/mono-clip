@@ -85,6 +85,10 @@ jobs:
           touch src-tauri/binaries/mclip-${{ matrix.target }}
           cargo build --bin mclip --release --target ${{ matrix.target }} --manifest-path src-tauri/Cargo.toml
           cp src-tauri/target/${{ matrix.target }}/release/mclip src-tauri/binaries/mclip-${{ matrix.target }}
+          # `touch` above creates the placeholder as non-executable (644), and `cp`
+          # into an already-existing file keeps that mode rather than the source's —
+          # without this, mclip ships in every bundle unable to be run at all.
+          chmod +x src-tauri/binaries/mclip-${{ matrix.target }}
 
       - name: Build mclip binary (Windows)
         if: runner.os == 'Windows'
