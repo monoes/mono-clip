@@ -1,6 +1,6 @@
 {
   "productName": "MonoClip",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "identifier": "com.monoes.monoclip",
   "build": {
     "frontendDist": "../dist",

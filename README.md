@@ -113,14 +113,14 @@ Three artifacts ship for `x86_64` on the [Releases page](https://github.com/nokh
 
 ```bash
 # AppImage — portable, self-updating, no install
-chmod +x MonoClip_0.2.11_amd64.AppImage
-./MonoClip_0.2.11_amd64.AppImage
+chmod +x MonoClip_0.2.12_amd64.AppImage
+./MonoClip_0.2.12_amd64.AppImage
 
 # Debian / Ubuntu
-sudo apt install ./MonoClip_0.2.11_amd64.deb
+sudo apt install ./MonoClip_0.2.12_amd64.deb
 
 # Fedora / RHEL / openSUSE
-sudo rpm -i MonoClip-0.2.11-1.x86_64.rpm
+sudo rpm -i MonoClip-0.2.12-1.x86_64.rpm
 ```
 
 > **Pick the AppImage if you want in-app updates.** deb and rpm installs are owned by your package manager, so MonoClip won't overwrite them — it points you at the release page instead.
