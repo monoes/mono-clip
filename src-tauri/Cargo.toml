@@ -4,7 +4,7 @@ version = "0.2.11"
 description = "A blazing-fast macOS clipboard manager"
 authors = ["MonoES"]
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.87"
 default-run = "monoclip"
 
 [lib]
@@ -32,6 +32,14 @@ arboard = "3.6"
 image = { version = "0.25", default-features = false, features = ["png"] }
 clap = { version = "4", features = ["derive"] }
 ureq = { version = "2", features = ["json"] }
+
+# The X11-only tauri-plugin-global-shortcut grab never receives keys on native
+# Wayland compositors. On Linux under Wayland we use the XDG Desktop Portal's
+# GlobalShortcuts interface instead (see shortcuts::portal) — the correct
+# mechanism there, though not every portal backend implements it yet.
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { version = "0.13", default-features = false, features = ["tokio", "global_shortcuts"] }
+futures-util = "0.3"
 
 [[bin]]
 name = "mclip"

@@ -107,6 +107,67 @@ fn capture_selected_text(_app: &AppHandle) -> Option<String> {
     None
 }
 
+/// True when the master shortcut should go through the XDG GlobalShortcuts
+/// portal (shortcuts::portal) instead of the X11 grab below — the X11 grab
+/// never receives physical keypresses from native-Wayland client windows.
+pub fn using_wayland_portal() -> bool {
+    cfg!(target_os = "linux") && std::env::var_os("WAYLAND_DISPLAY").is_some()
+}
+
+/// Show/hide the main window near the cursor. Shared by the X11 global-shortcut
+/// path and the Wayland GlobalShortcuts portal path (shortcuts::portal).
+pub fn toggle_main_window(app: &AppHandle) {
+    crate::window::manager::position_window_near_cursor(app);
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+}
+
+/// Register whichever shortcuts are appropriate for this platform/session at
+/// startup. On Linux under Wayland, the master shortcut is bound via the
+/// portal (async, may take a moment and can fail silently if the portal
+/// backend doesn't implement GlobalShortcuts yet); folder shortcuts still use
+/// the X11 path unconditionally. Everywhere else, everything uses X11.
+pub fn register_startup_shortcuts(app: &AppHandle) {
+    if using_wayland_portal() {
+        if let Err(e) = register_folder_shortcuts_only(app) {
+            log::error!("Failed to register folder shortcuts: {}", e);
+        }
+
+        let master_shortcut = {
+            let state = app.state::<AppState>();
+            let conn = state.db.lock();
+            queries::get_settings(&conn)
+                .map(|s| s.master_shortcut)
+                .unwrap_or_else(|_| "CmdOrCtrl+Shift+V".to_string())
+        };
+
+        #[cfg(target_os = "linux")]
+        {
+            let portal_app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                crate::shortcuts::portal::run(portal_app, master_shortcut).await;
+            });
+        }
+        return;
+    }
+
+    if let Err(e) = register_all_shortcuts(app) {
+        log::error!("Failed to register shortcuts: {}", e);
+    }
+}
+
+/// Register the master (open/close) shortcut via X11. Called when it's changed
+/// in Settings — not used on the Wayland portal path (see `using_wayland_portal`).
+pub fn register_master_shortcut(app: &AppHandle, shortcut_str: &str) -> anyhow::Result<()> {
+    register_shortcut(app, shortcut_str, ShortcutAction::ToggleWindow)
+}
+
 /// Register a single folder shortcut. Called when a folder is created or its shortcut updated.
 pub fn register_folder_shortcut(
     app: &AppHandle,
@@ -141,6 +202,26 @@ pub fn register_all_shortcuts(app: &AppHandle) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Same as `register_all_shortcuts` but skips the master shortcut — used on
+/// the Wayland portal path, where that one is bound separately (see
+/// `register_startup_shortcuts`).
+fn register_folder_shortcuts_only(app: &AppHandle) -> anyhow::Result<()> {
+    let state = app.state::<AppState>();
+    let folder_shortcuts: Vec<(i64, String, String)> = {
+        let conn = state.db.lock();
+        queries::get_folders(&conn)?
+            .into_iter()
+            .filter_map(|f| f.global_shortcut.map(|s| (f.id, f.name, s)))
+            .collect()
+    };
+
+    for (folder_id, folder_name, shortcut_str) in folder_shortcuts {
+        register_shortcut(app, &shortcut_str, ShortcutAction::SaveToFolder { folder_id, folder_name })?;
+    }
+
+    Ok(())
+}
+
 enum ShortcutAction {
     ToggleWindow,
     SaveToFolder { folder_id: i64, folder_name: String },
@@ -160,15 +241,7 @@ fn register_shortcut(app: &AppHandle, shortcut_str: &str, action: ShortcutAction
         ShortcutAction::ToggleWindow => {
             app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
-                    crate::window::manager::position_window_near_cursor(&app_clone);
-                    if let Some(window) = app_clone.get_webview_window("main") {
-                        if window.is_visible().unwrap_or(false) {
-                            let _ = window.hide();
-                        } else {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
+                    toggle_main_window(&app_clone);
                 }
             })?;
         }

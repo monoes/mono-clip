@@ -41,9 +41,7 @@ fn main() {
             setup_tray(&handle)?;
 
             // Register global shortcuts
-            if let Err(e) = shortcuts_manager::register_all_shortcuts(&handle) {
-                log::error!("Failed to register shortcuts: {}", e);
-            }
+            shortcuts_manager::register_startup_shortcuts(&handle);
 
             // Start clipboard watcher
             watcher::start_watcher(handle.clone());
