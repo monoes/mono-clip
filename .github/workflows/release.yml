@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*'
 
+# tauri-action creates the GitHub release itself; without this the default
+# GITHUB_TOKEN is read-only here and every job fails at that last step with
+# "Resource not accessible by integration", after building successfully.
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:

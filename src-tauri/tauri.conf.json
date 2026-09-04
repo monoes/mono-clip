@@ -47,7 +47,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app", "dmg", "deb", "rpm", "appimage", "nsis"],
     "externalBin": [
       "binaries/mclip"
     ],

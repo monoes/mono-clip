@@ -139,16 +139,16 @@ pub fn register_startup_shortcuts(app: &AppHandle) {
             log::error!("Failed to register folder shortcuts: {}", e);
         }
 
-        let master_shortcut = {
-            let state = app.state::<AppState>();
-            let conn = state.db.lock();
-            queries::get_settings(&conn)
-                .map(|s| s.master_shortcut)
-                .unwrap_or_else(|_| "CmdOrCtrl+Shift+V".to_string())
-        };
-
         #[cfg(target_os = "linux")]
         {
+            let master_shortcut = {
+                let state = app.state::<AppState>();
+                let conn = state.db.lock();
+                queries::get_settings(&conn)
+                    .map(|s| s.master_shortcut)
+                    .unwrap_or_else(|_| "CmdOrCtrl+Shift+V".to_string())
+            };
+
             let portal_app = app.clone();
             tauri::async_runtime::spawn(async move {
                 crate::shortcuts::portal::run(portal_app, master_shortcut).await;
