@@ -50,7 +50,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: latest
+          # Pinned: pnpm 11 requires Node >= 22.13 (uses node:sqlite internally)
+          # but this workflow runs Node 20 below — "latest" silently broke every
+          # job the moment pnpm 11 shipped. pnpm 10 matches this repo's lockfile
+          # (lockfileVersion 9.0) and Node 20 fine.
+          version: 10
 
       - uses: actions/setup-node@v4
         with:
