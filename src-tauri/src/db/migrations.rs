@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS settings (
     max_history_items   INTEGER NOT NULL DEFAULT 500,
     paste_on_click      INTEGER NOT NULL DEFAULT 1,
     theme               TEXT    NOT NULL DEFAULT 'system',
-    launch_at_login     INTEGER NOT NULL DEFAULT 0,
+    launch_at_login     INTEGER NOT NULL DEFAULT 1,
     ignored_apps        TEXT    NOT NULL DEFAULT '[]',
     updated_at          TEXT    NOT NULL DEFAULT (datetime('now'))
 );
