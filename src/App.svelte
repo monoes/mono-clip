@@ -74,6 +74,11 @@
     await listen<string>("update:error", ({ payload }) => {
       (toast as unknown as { show: (msg: string, type: string, duration: number) => void })?.show(`Update failed: ${payload}`, "error", 6000);
     });
+    // Linux deb/rpm installs are package-manager owned — we point at the release
+    // page rather than replacing files behind the package manager's back.
+    await listen<string>("update:manual", ({ payload }) => {
+      (toast as unknown as { show: (msg: string, type: string, duration: number) => void })?.show(payload, "info", 10000);
+    });
 
     // Hide window when it loses focus; reload clips when it gains focus
     const { getCurrentWindow } = await import("@tauri-apps/api/window");

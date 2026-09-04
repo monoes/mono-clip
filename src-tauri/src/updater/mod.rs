@@ -71,7 +71,7 @@ fn pick_asset_url(json: &serde_json::Value, tag: &str) -> String {
             })
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     {
         // Find the aarch64 DMG asset URL
         assets
@@ -90,6 +90,30 @@ fn pick_asset_url(json: &serde_json::Value, tag: &str) -> String {
                 let v = tag.trim_start_matches('v');
                 format!(
                     "https://github.com/nokhodian/mono-clip/releases/download/{tag}/MonoClip_{v}_aarch64.dmg"
+                )
+            })
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // The AppImage is the only self-updatable Linux artifact — deb/rpm are
+        // owned by the package manager, so we never point the updater at them.
+        assets
+            .and_then(|list| {
+                list.iter().find_map(|a| {
+                    let name = a["name"].as_str()?;
+                    if name.ends_with(".AppImage") {
+                        a["browser_download_url"].as_str().map(|s| s.to_string())
+                    } else {
+                        None
+                    }
+                })
+            })
+            // Fallback: construct URL from tag
+            .unwrap_or_else(|| {
+                let v = tag.trim_start_matches('v');
+                format!(
+                    "https://github.com/nokhodian/mono-clip/releases/download/{tag}/MonoClip_{v}_amd64.AppImage"
                 )
             })
     }
@@ -141,6 +165,8 @@ pub fn start_update_checker<R: Runtime>(app: AppHandle<R>, stop: Arc<AtomicBool>
 ///
 /// - Homebrew installs: `brew upgrade --cask mono-clip` then relaunch
 /// - Direct installs:   download DMG → mount → copy → unmount → relaunch
+/// - Linux AppImage:    download AppImage → swap in place → relaunch
+/// - Linux deb/rpm:     no self-update; the package manager owns those files
 ///
 /// Emits `update:progress` with status strings and `update:done` on success.
 pub fn apply_update<R: Runtime>(app: &AppHandle<R>) {
@@ -161,7 +187,7 @@ pub fn apply_update<R: Runtime>(app: &AppHandle<R>) {
             apply_windows_update(&app, &info);
         }
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
         {
             let exe = std::env::current_exe().unwrap_or_default();
             let path_str = exe.to_string_lossy().to_lowercase();
@@ -171,6 +197,14 @@ pub fn apply_update<R: Runtime>(app: &AppHandle<R>) {
                 apply_homebrew_update(&app);
             } else {
                 apply_direct_update(&app, &info);
+            }
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            match appimage_path() {
+                Some(path) => apply_appimage_update(&app, &info, &path),
+                None => notify_manual_update(&app, &info),
             }
         }
     });
@@ -240,7 +274,7 @@ fn apply_windows_update<R: Runtime>(app: &AppHandle<R>, info: &UpdateInfo) {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 fn apply_homebrew_update<R: Runtime>(app: &AppHandle<R>) {
     emit_progress(app, "Running brew upgrade --cask mono-clip…");
 
@@ -264,7 +298,7 @@ fn apply_homebrew_update<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
 fn apply_direct_update<R: Runtime>(app: &AppHandle<R>, info: &UpdateInfo) {
     let tmp_dmg = std::env::temp_dir().join("MonoClip_update.dmg");
 
@@ -354,11 +388,129 @@ fn apply_direct_update<R: Runtime>(app: &AppHandle<R>, info: &UpdateInfo) {
 fn relaunch<R: Runtime>(app: &AppHandle<R>) {
     #[cfg(target_os = "windows")]
     let _ = std::process::Command::new(std::env::current_exe().unwrap_or_default()).spawn();
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     let _ = std::process::Command::new("open")
         .args(["-n", "/Applications/MonoClip.app"])
         .spawn();
+    // On Linux the AppImage (or the installed binary) re-execs itself directly —
+    // there is no `open`-style launcher to hand off to.
+    #[cfg(target_os = "linux")]
+    let _ = std::process::Command::new(
+        appimage_path().unwrap_or_else(|| std::env::current_exe().unwrap_or_default()),
+    )
+    .spawn();
     // Brief pause so the new process can start before we exit
     std::thread::sleep(Duration::from_millis(800));
     app.exit(0);
+}
+
+/// Path to the running AppImage, if this process was launched from one.
+///
+/// The AppImage runtime exports `APPIMAGE` with the absolute path of the
+/// `.AppImage` file itself (`current_exe()` instead points inside the
+/// throwaway `/tmp/.mount_*` squashfs, which is useless for self-replacement).
+#[cfg(target_os = "linux")]
+fn appimage_path() -> Option<std::path::PathBuf> {
+    let raw = std::env::var_os("APPIMAGE")?;
+    let path = std::path::PathBuf::from(raw);
+    if path.is_absolute() && path.exists() {
+        Some(path)
+    } else {
+        None
+    }
+}
+
+/// deb/rpm installs are owned by the package manager — replacing those files
+/// behind its back would leave the package database lying. Point the user at
+/// the release instead.
+#[cfg(target_os = "linux")]
+fn notify_manual_update<R: Runtime>(app: &AppHandle<R>, info: &UpdateInfo) {
+    let releases_url = format!(
+        "https://github.com/nokhodian/mono-clip/releases/tag/{}",
+        info.tag
+    );
+    log::info!("[update] {} available; package-managed install, not self-updating", info.tag);
+
+    // xdg-open is the only launcher we can rely on across desktops.
+    if std::process::Command::new("xdg-open")
+        .arg(&releases_url)
+        .spawn()
+        .is_err()
+    {
+        log::warn!("xdg-open unavailable; user must visit {} manually", releases_url);
+    }
+
+    let _ = app.emit(
+        "update:manual",
+        format!(
+            "MonoClip {} is available. This build was installed from a package \
+             (deb/rpm), so update it with your package manager or download the \
+             new release.",
+            info.tag
+        ),
+    );
+}
+
+/// Download the new AppImage and swap it over the running one.
+///
+/// The replacement is staged next to the target and moved into place with a
+/// rename, so an interrupted download can never leave a half-written AppImage
+/// where the working one used to be.
+#[cfg(target_os = "linux")]
+fn apply_appimage_update<R: Runtime>(
+    app: &AppHandle<R>,
+    info: &UpdateInfo,
+    current: &std::path::Path,
+) {
+    use std::os::unix::fs::PermissionsExt;
+
+    // Staging in the same directory keeps the final step a rename (atomic)
+    // rather than a cross-filesystem copy.
+    let staging = current.with_extension("AppImage.new");
+
+    emit_progress(app, &format!("Downloading {}…", info.tag));
+    let response = match ureq::get(&info.download_url)
+        .set("User-Agent", "MonoClip-Updater")
+        .call()
+    {
+        Ok(r) => r,
+        Err(e) => {
+            let _ = app.emit("update:error", format!("Download failed: {e}"));
+            return;
+        }
+    };
+
+    let mut file = match std::fs::File::create(&staging) {
+        Ok(f) => f,
+        Err(e) => {
+            let _ = app.emit(
+                "update:error",
+                format!("Cannot write next to the AppImage ({e}) — is it on a read-only mount?"),
+            );
+            return;
+        }
+    };
+    if let Err(e) = std::io::copy(&mut response.into_reader(), &mut file) {
+        let _ = std::fs::remove_file(&staging);
+        let _ = app.emit("update:error", format!("Download write failed: {e}"));
+        return;
+    }
+    drop(file);
+
+    // An AppImage that isn't executable is just a file the kernel refuses to run.
+    if let Err(e) = std::fs::set_permissions(&staging, std::fs::Permissions::from_mode(0o755)) {
+        let _ = std::fs::remove_file(&staging);
+        let _ = app.emit("update:error", format!("Cannot mark AppImage executable: {e}"));
+        return;
+    }
+
+    emit_progress(app, "Installing new version…");
+    if let Err(e) = std::fs::rename(&staging, current) {
+        let _ = std::fs::remove_file(&staging);
+        let _ = app.emit("update:error", format!("Failed to replace AppImage: {e}"));
+        return;
+    }
+
+    emit_progress(app, "Installed — relaunching…");
+    relaunch(app);
 }

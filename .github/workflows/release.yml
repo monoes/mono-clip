@@ -15,11 +15,38 @@ jobs:
             target: aarch64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
+
+      # Tauri 2 links against webkit2gtk-4.1; libayatana-appindicator3 backs the
+      # tray icon and libxdo backs the global-shortcut/keyboard plugins.
+      # NB: do not add libappindicator3-dev — it conflicts with the ayatana
+      # package on 22.04 and apt will refuse to install both.
+      # libfuse2 is FUSE *2* on purpose: the linuxdeploy AppImages that the
+      # bundler downloads to build our AppImage are themselves AppImages, and
+      # the AppImage runtime needs FUSE2 to mount them.
+      # Pinned to 22.04 so the AppImage's glibc floor stays at 2.35 — building
+      # on 24.04 would raise it to 2.39 and break older distros.
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            desktop-file-utils \
+            patchelf \
+            libfuse2 \
+            file
 
       - uses: pnpm/action-setup@v4
         with:

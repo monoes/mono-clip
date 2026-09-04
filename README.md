@@ -8,7 +8,7 @@
 
 <br/>
 
-[![Platform](https://img.shields.io/badge/platform-macOS-black?style=flat-square&logo=apple)](https://github.com/nokhodian/mono-clip)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-black?style=flat-square)](https://github.com/nokhodian/mono-clip/releases)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-FFC131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 [![Svelte](https://img.shields.io/badge/frontend-Svelte%205-FF3E00?style=flat-square&logo=svelte&logoColor=white)](https://svelte.dev)
 [![Rust](https://img.shields.io/badge/backend-Rust-CE422B?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org)
@@ -107,7 +107,38 @@ Grab the latest `.dmg` from the [Releases page](https://github.com/nokhodian/mon
 
 > **Apple Silicon only** — the current release targets `aarch64`. Intel builds coming soon.
 
-### Option C — Build from Source
+### Option C — Linux
+
+Three artifacts ship for `x86_64` on the [Releases page](https://github.com/nokhodian/mono-clip/releases):
+
+```bash
+# AppImage — portable, self-updating, no install
+chmod +x MonoClip_0.2.11_amd64.AppImage
+./MonoClip_0.2.11_amd64.AppImage
+
+# Debian / Ubuntu
+sudo apt install ./MonoClip_0.2.11_amd64.deb
+
+# Fedora / RHEL / openSUSE
+sudo rpm -i MonoClip-0.2.11-1.x86_64.rpm
+```
+
+> **Pick the AppImage if you want in-app updates.** deb and rpm installs are owned by your package manager, so MonoClip won't overwrite them — it points you at the release page instead.
+
+The tray icon needs an AppIndicator host. GNOME users: install the [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/); most other desktops (KDE, XFCE, Cinnamon) support it out of the box.
+
+**Known Linux limitations:**
+
+| Feature | Status |
+|---|---|
+| Clipboard history, folders, search, pinning | ✅ Works |
+| Master (open/close) shortcut, on X11 | ✅ Works |
+| Master shortcut, on Wayland | ⚠️ Uses the [XDG `GlobalShortcuts` portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html) — works if your desktop's portal backend implements it (GNOME 48+, KDE Plasma 6.4+); not yet on COSMIC ([xdg-desktop-portal-cosmic](https://github.com/pop-os/xdg-desktop-portal-cosmic) doesn't implement this interface as of writing). The tray icon always works as a fallback. |
+| Folder shortcuts | ✅ On X11 — same Wayland limitation as the master shortcut applies (not yet ported to the portal) |
+| Auto-paste after picking a clip | ❌ Clip is copied; paste it yourself with `Ctrl+V` |
+| Capture *selected* text via folder shortcut | ❌ Falls back to current clipboard contents |
+
+### Option D — Build from Source
 
 **Prerequisites:**
 
@@ -116,7 +147,16 @@ Grab the latest `.dmg` from the [Releases page](https://github.com/nokhodian/mon
 | Rust | 1.77+ | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
 | Node.js | 18+ | [nodejs.org](https://nodejs.org) or `brew install node` |
 | pnpm | latest | `npm i -g pnpm` |
-| Xcode CLT | latest | `xcode-select --install` |
+| Xcode CLT | *(macOS)* | `xcode-select --install` |
+| System libs | *(Linux)* | see below |
+
+**Linux system dependencies** (Debian/Ubuntu — adapt for your distro):
+
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+  librsvg2-dev libxdo-dev libssl-dev build-essential patchelf file \
+  desktop-file-utils fuse3
+```
 
 ```bash
 git clone https://github.com/nokhodian/mono-clip.git
@@ -124,7 +164,7 @@ cd mono-clip
 pnpm install
 cargo tauri dev           # dev mode
 # — OR —
-cargo tauri build         # → src-tauri/target/release/bundle/macos/MonoClip.app
+cargo tauri build         # → src-tauri/target/release/bundle/
 ```
 
 > 💡 The first build takes a few minutes while Rust compiles all dependencies.
