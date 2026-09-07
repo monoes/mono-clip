@@ -6,6 +6,7 @@
   import { clipsStore } from "$lib/stores/clips.svelte";
   import { isMac, formatShortcut } from "$lib/utils/platform";
   import ShortcutRecorder from "./ShortcutRecorder.svelte";
+  import CommunityLinks from "./CommunityLinks.svelte";
 
   interface Props {
     open?: boolean;
@@ -78,6 +79,8 @@
           onclick={() => { open = false; onclose?.(); }}
         >✕</button>
       </div>
+
+      <CommunityLinks />
 
       {#if settingsStore.data}
         {@const s = settingsStore.data}

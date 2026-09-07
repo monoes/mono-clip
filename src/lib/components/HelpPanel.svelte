@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatShortcut } from "$lib/utils/platform";
+  import CommunityLinks from "./CommunityLinks.svelte";
 
   interface Props {
     open?: boolean;
@@ -89,6 +90,8 @@ mclip get 7 | pbcopy
           onclick={() => { open = false; onclose?.(); }}
         >✕</button>
       </div>
+
+      <CommunityLinks />
 
       <!-- Keyboard Shortcuts -->
       <section class="mb-5">
