@@ -25,7 +25,7 @@
   }
 </script>
 
-<div class="relative flex items-center px-3 py-2.5 border-b border-white/5">
+<div data-tauri-drag-region class="relative flex items-center px-3 py-2.5 border-b border-white/5">
   <span class="text-white/30 mr-2.5 text-sm flex-shrink-0">⌕</span>
   <input
     bind:this={inputEl}
