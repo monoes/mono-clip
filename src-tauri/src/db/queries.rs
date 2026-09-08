@@ -337,7 +337,15 @@ pub fn get_settings(conn: &Connection) -> Result<Settings> {
 
 pub fn update_settings(conn: &Connection, patch: &crate::db::models::SettingsPatch) -> Result<Settings> {
     if let Some(v) = &patch.master_shortcut {
-        conn.execute("UPDATE settings SET master_shortcut = ?1, updated_at = datetime('now') WHERE id = 1", params![v])?;
+        // Unlike folder shortcuts, the master shortcut has no valid "unset" state —
+        // it's the only keyboard way to open the app. Reject empty values here as a
+        // second line of defense (the UI also disables clearing it) rather than
+        // silently persisting something Shortcut::from_str will fail to register.
+        if v.is_empty() {
+            log::warn!("Ignoring attempt to set master_shortcut to an empty value");
+        } else {
+            conn.execute("UPDATE settings SET master_shortcut = ?1, updated_at = datetime('now') WHERE id = 1", params![v])?;
+        }
     }
     if let Some(v) = patch.auto_clean_enabled {
         conn.execute("UPDATE settings SET auto_clean_enabled = ?1, updated_at = datetime('now') WHERE id = 1", params![v as i64])?;

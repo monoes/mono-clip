@@ -288,6 +288,7 @@
         <section>
           <h3 class="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">Master Shortcut</h3>
           <ShortcutRecorder
+            allowClear={false}
             value={s.masterShortcut}
             onchange={(shortcut) => settingsStore.update({ masterShortcut: shortcut })}
           />

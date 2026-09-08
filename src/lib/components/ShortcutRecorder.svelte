@@ -2,8 +2,9 @@
   interface Props {
     value?: string;
     onchange?: (value: string) => void;
+    allowClear?: boolean;
   }
-  let { value = $bindable(""), onchange }: Props = $props();
+  let { value = $bindable(""), onchange, allowClear = true }: Props = $props();
 
   let recording = $state(false);
   let saved = $state(false);
@@ -119,7 +120,7 @@
   {/if}
 
   <!-- Clear button -->
-  {#if value && !recording}
+  {#if value && !recording && allowClear}
     <!-- svelte-ignore a11y_consider_explicit_label -->
     <button
       class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center
