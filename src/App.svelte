@@ -130,6 +130,10 @@
          transition-all
          {appVisible ? 'animate-spring-in' : 'opacity-0 scale-[0.96]'}"
 >
+  <!-- Dedicated drag strip — separate from the search bar so it's always
+       grabbable without landing on the search icon/input/clear button -->
+  <div data-tauri-drag-region class="h-2.5 w-full shrink-0"></div>
+
   <!-- Search bar at top -->
   <SearchBar bind:value={searchQuery} onchange={onSearch} />
 
