@@ -116,3 +116,19 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
+
+  # releaseDraft above is required, not optional — the three matrix jobs all
+  # upload to the same release, and without staying a draft until every
+  # platform is in, whichever job finishes first would make an incomplete
+  # release public immediately. This job runs only once every matrix leg has
+  # succeeded (the default `needs` behavior skips it if any of them failed)
+  # and flips the finished draft to published.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit ${{ github.ref_name }} --draft=false
