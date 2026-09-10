@@ -101,7 +101,7 @@ That's it. Homebrew handles everything — download, verify checksum, install th
 
 Grab the latest `.dmg` from the [Releases page](https://github.com/nokhodian/mono-clip/releases):
 
-1. Download `MonoClip_0.2.2_aarch64.dmg`
+1. Download `MonoClip_0.2.16_aarch64.dmg`
 2. Open the `.dmg` and drag **MonoClip.app** to `/Applications`
 3. Launch from Spotlight or `/Applications`
 
