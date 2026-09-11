@@ -6,7 +6,7 @@ use std::sync::atomic::AtomicBool;
 use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt;
 use monoclip_lib::{
-    commands::{clips, folders, settings, utility},
+    commands::{backup, clips, folders, settings, utility},
     db::connection,
     shortcuts::manager as shortcuts_manager,
     state::AppState,
@@ -124,6 +124,9 @@ fn main() {
             utility::check_accessibility,
             utility::open_accessibility_settings,
             utility::do_update,
+            // Backup
+            backup::export_data,
+            backup::import_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running MonoClip")
