@@ -910,20 +910,28 @@ Add to `src/lib/components/SettingsPanel.svelte`, as a new `<section>` following
   async function handleExport() {
     const path = await save({ defaultPath: "monoclip-backup.json", filters: [{ name: "JSON", extensions: ["json"] }] });
     if (!path) return;
-    const json = await exportData();
-    await writeTextFile(path, json);
-    backupResult = "Exported";
+    try {
+      const json = await exportData();
+      await writeTextFile(path, json);
+      backupResult = "Exported";
+    } catch (e) {
+      backupResult = `Export failed: ${e}`;
+    }
     setTimeout(() => { backupResult = null; }, 3000);
   }
 
   async function handleImport() {
     const path = await openDialog({ filters: [{ name: "JSON", extensions: ["json"] }] });
     if (!path || Array.isArray(path)) return;
-    const json = await readTextFile(path);
-    const summary = await importData(json);
-    backupResult = `Imported ${summary.clipsImported} clips, ${summary.foldersCreated} new folders`;
-    clipsStore.load(foldersStore.activeId ?? 1);
-    foldersStore.load();
+    try {
+      const json = await readTextFile(path);
+      const summary = await importData(json);
+      backupResult = `Imported ${summary.clipsImported} clips, ${summary.foldersCreated} new folders`;
+      clipsStore.load(foldersStore.activeId ?? 1);
+      foldersStore.load();
+    } catch (e) {
+      backupResult = `Import failed: ${e}`;
+    }
     setTimeout(() => { backupResult = null; }, 5000);
   }
 ```
