@@ -119,3 +119,12 @@ export const clearFolderClips = (folderId: number) => invoke<number>("clear_fold
 export const exportFolderClips = (folderId: number) => invoke<string>("export_folder_clips", { folderId });
 export const checkAccessibility = () => invoke<boolean>("check_accessibility");
 export const openAccessibilitySettings = () => invoke<void>("open_accessibility_settings");
+
+// ─── Backup Commands ───────────────────────────────────────────────────────────
+export async function exportData(): Promise<string> {
+  return invoke("export_data");
+}
+
+export async function importData(json: string): Promise<{ foldersCreated: number; foldersMerged: number; clipsImported: number }> {
+  return invoke("import_data", { json });
+}

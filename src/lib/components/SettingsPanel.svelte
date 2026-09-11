@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getVersion } from "@tauri-apps/api/app";
+  import { save, open as openDialog } from "@tauri-apps/plugin-dialog";
+  import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
   import { settingsStore } from "$lib/stores/settings.svelte";
-  import { runAutoCleanup, clearAllClips, installCli, checkAccessibility, openAccessibilitySettings } from "$lib/api/tauri";
+  import { runAutoCleanup, clearAllClips, installCli, checkAccessibility, openAccessibilitySettings, exportData, importData } from "$lib/api/tauri";
   import { clipsStore } from "$lib/stores/clips.svelte";
+  import { foldersStore } from "$lib/stores/folders.svelte";
   import { isMac, formatShortcut } from "$lib/utils/platform";
   import ShortcutRecorder from "./ShortcutRecorder.svelte";
   import CommunityLinks from "./CommunityLinks.svelte";
@@ -19,6 +22,7 @@
   let cliResult = $state<{ ok: boolean; msg: string } | null>(null);
   let accessibilityGranted = $state<boolean | null>(null);
   let appVersion = $state("");
+  let backupResult = $state<string | null>(null);
 
   async function handleCleanup() {
     const count = await runAutoCleanup();
@@ -48,6 +52,26 @@
 
   async function refreshAccessibility() {
     accessibilityGranted = await checkAccessibility();
+  }
+
+  async function handleExport() {
+    const path = await save({ defaultPath: "monoclip-backup.json", filters: [{ name: "JSON", extensions: ["json"] }] });
+    if (!path) return;
+    const json = await exportData();
+    await writeTextFile(path, json);
+    backupResult = "Exported";
+    setTimeout(() => { backupResult = null; }, 3000);
+  }
+
+  async function handleImport() {
+    const path = await openDialog({ filters: [{ name: "JSON", extensions: ["json"] }] });
+    if (!path || Array.isArray(path)) return;
+    const json = await readTextFile(path);
+    const summary = await importData(json);
+    backupResult = `Imported ${summary.clipsImported} clips, ${summary.foldersCreated} new folders`;
+    clipsStore.load(foldersStore.activeId ?? 1);
+    foldersStore.load();
+    setTimeout(() => { backupResult = null; }, 5000);
   }
 
   $effect(() => {
@@ -180,6 +204,24 @@
               </div>
             </div>
           </div>
+        </section>
+
+        <!-- Backup -->
+        <section class="mb-5">
+          <h3 class="text-xs font-medium text-white/40 uppercase tracking-wider mb-3">Backup</h3>
+          <div class="flex gap-2">
+            <button
+              class="flex-1 py-2 rounded-lg text-sm border transition-colors text-white/70 border-white/10 hover:bg-white/5"
+              onclick={handleExport}
+            >Export All</button>
+            <button
+              class="flex-1 py-2 rounded-lg text-sm border transition-colors text-white/70 border-white/10 hover:bg-white/5"
+              onclick={handleImport}
+            >Import</button>
+          </div>
+          {#if backupResult}
+            <p class="text-xs text-green-400 mt-2">{backupResult}</p>
+          {/if}
         </section>
 
         <!-- General -->
