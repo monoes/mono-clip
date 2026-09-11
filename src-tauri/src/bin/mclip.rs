@@ -523,6 +523,28 @@ fn cmd_mcp() {
                 },
                 "required": ["name"]
             }
+        },
+        {
+            "name": "create_note",
+            "description": "Create a blank note card in MonoClip",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "folder": { "type": "string", "description": "Destination folder (default: Inbox)" }
+                }
+            }
+        },
+        {
+            "name": "update_clip_content",
+            "description": "Replace the content of an existing clip or note",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "integer", "description": "Clip ID (from list_clips)" },
+                    "content": { "type": "string", "description": "New content (Markdown for notes)" }
+                },
+                "required": ["id", "content"]
+            }
         }
     ]);
 
@@ -668,6 +690,27 @@ fn mcp_call_tool(name: &str, args: &serde_json::Value) -> serde_json::Value {
                 Err(e) => err(e),
             }
         }
+        "create_note" => {
+            let folder = args.get("folder").and_then(|v| v.as_str()).map(String::from);
+            match mcp_create_note(folder) {
+                Ok(msg) => text(msg),
+                Err(e) => err(e),
+            }
+        }
+        "update_clip_content" => {
+            let id = match args.get("id").and_then(|v| v.as_i64()) {
+                Some(i) => i,
+                None => return err("missing required field: id".to_string()),
+            };
+            let content = match args.get("content").and_then(|v| v.as_str()) {
+                Some(c) => c.to_string(),
+                None => return err("missing required field: content".to_string()),
+            };
+            match mcp_update_clip_content(id, content) {
+                Ok(msg) => text(msg),
+                Err(e) => err(e),
+            }
+        }
         _ => err(format!("unknown tool: {}", name)),
     }
 }
@@ -733,6 +776,27 @@ fn mcp_add_clip(content: String, folder: Option<String>) -> Result<String, Strin
     ).map_err(|e| e.to_string())?;
     let id = conn.last_insert_rowid();
     Ok(format!("Added clip #{} to {} ({})", id, folder.as_deref().unwrap_or("Inbox"), ctype))
+}
+
+fn mcp_create_note(folder: Option<String>) -> Result<String, String> {
+    let conn = open_db();
+    let folder_id = folder.as_deref().map(|f| resolve_folder_id(&conn, f)).unwrap_or(1);
+    conn.execute(
+        "INSERT INTO clip_items (content, content_type, preview, folder_id) VALUES ('', 'note', '', ?1)",
+        params![folder_id],
+    ).map_err(|e| e.to_string())?;
+    Ok(format!("Created note #{}", conn.last_insert_rowid()))
+}
+
+fn mcp_update_clip_content(id: i64, content: String) -> Result<String, String> {
+    let conn = open_db();
+    let preview = make_preview(&content, 200);
+    let affected = conn.execute(
+        "UPDATE clip_items SET content = ?1, preview = ?2, updated_at = datetime('now') WHERE id = ?3",
+        params![content, preview, id],
+    ).unwrap_or(0);
+    if affected == 0 { return Err(format!("clip #{} not found", id)); }
+    Ok(format!("Updated clip #{}", id))
 }
 
 fn mcp_get_clip(id: i64) -> Result<String, String> {
