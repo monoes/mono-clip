@@ -898,10 +898,10 @@ export async function importData(json: string): Promise<{ foldersCreated: number
 
 - [ ] **Step 2: Add the Settings section**
 
-Add to `src/lib/components/SettingsPanel.svelte`, as a new `<section>` following the existing pattern (e.g. right after the "CLI Tools" section), importing `save`/`open` from `@tauri-apps/plugin-dialog` and `writeTextFile`/`readTextFile` from `@tauri-apps/plugin-fs` at the top of the `<script>` block:
+Add to `src/lib/components/SettingsPanel.svelte`, as a new `<section>` following the existing pattern (e.g. right after the "CLI Tools" section), importing `save`/`open` from `@tauri-apps/plugin-dialog` and `writeTextFile`/`readTextFile` from `@tauri-apps/plugin-fs` at the top of the `<script>` block. **Note: this component already destructures a bindable prop named `open` (`let { open = $bindable(false), onclose }: Props = $props();`) — the dialog plugin's `open` import collides with it and must be aliased**, e.g. `import { save, open as openDialog } from "@tauri-apps/plugin-dialog";`, with the call site updated to `openDialog(...)` accordingly. `foldersStore` must also be imported here if it isn't already (`import { foldersStore } from "$lib/stores/folders.svelte";`) — check the file's current imports rather than assuming:
 
 ```typescript
-  import { save, open } from "@tauri-apps/plugin-dialog";
+  import { save, open as openDialog } from "@tauri-apps/plugin-dialog";
   import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
   import { exportData, importData } from "$lib/api/tauri";
 
@@ -917,7 +917,7 @@ Add to `src/lib/components/SettingsPanel.svelte`, as a new `<section>` following
   }
 
   async function handleImport() {
-    const path = await open({ filters: [{ name: "JSON", extensions: ["json"] }] });
+    const path = await openDialog({ filters: [{ name: "JSON", extensions: ["json"] }] });
     if (!path || Array.isArray(path)) return;
     const json = await readTextFile(path);
     const summary = await importData(json);
