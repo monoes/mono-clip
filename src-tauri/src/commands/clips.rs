@@ -30,6 +30,18 @@ pub fn get_clip(state: State<AppState>, id: i64) -> Result<ClipItem, String> {
 }
 
 #[tauri::command]
+pub fn create_blank_clip(state: State<AppState>, folder_id: i64) -> Result<ClipItem, String> {
+    let conn = state.db.lock();
+    queries::create_blank_clip(&conn, folder_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_clip_content(state: State<AppState>, id: i64, content: String) -> Result<ClipItem, String> {
+    let conn = state.db.lock();
+    queries::update_clip_content(&conn, id, &content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn pin_clip(state: State<AppState>, id: i64) -> Result<(), String> {
     let conn = state.db.lock();
     queries::set_clip_pinned(&conn, id, true).map_err(|e| e.to_string())

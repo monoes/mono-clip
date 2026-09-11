@@ -200,6 +200,24 @@ pub fn insert_clip(
     get_clip(conn, id)
 }
 
+pub fn create_blank_clip(conn: &Connection, folder_id: i64) -> Result<ClipItem> {
+    conn.execute(
+        "INSERT INTO clip_items (content, content_type, preview, folder_id) VALUES ('', 'note', '', ?1)",
+        params![folder_id],
+    )?;
+    let id = conn.last_insert_rowid();
+    get_clip(conn, id)
+}
+
+pub fn update_clip_content(conn: &Connection, id: i64, content: &str) -> Result<ClipItem> {
+    let preview = crate::clipboard::detector::make_preview(content, 200);
+    conn.execute(
+        "UPDATE clip_items SET content = ?1, preview = ?2, updated_at = datetime('now') WHERE id = ?3",
+        params![content, preview, id],
+    )?;
+    get_clip(conn, id)
+}
+
 pub fn find_duplicate_in_folder(conn: &Connection, content: &str, folder_id: i64) -> Result<Option<i64>> {
     let result = conn.query_row(
         "SELECT id FROM clip_items WHERE content = ?1 AND folder_id = ?2 AND is_deleted = 0 LIMIT 1",
