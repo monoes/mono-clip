@@ -42,6 +42,12 @@ pub fn update_clip_content(state: State<AppState>, id: i64, content: String) -> 
 }
 
 #[tauri::command]
+pub fn copy_clip_styled(html: String, plain_text: String) -> Result<(), String> {
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    clipboard.set_html(html, Some(plain_text)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn pin_clip(state: State<AppState>, id: i64) -> Result<(), String> {
     let conn = state.db.lock();
     queries::set_clip_pinned(&conn, id, true).map_err(|e| e.to_string())

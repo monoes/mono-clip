@@ -97,6 +97,7 @@ fn main() {
             clips::get_clip,
             clips::create_blank_clip,
             clips::update_clip_content,
+            clips::copy_clip_styled,
             clips::pin_clip,
             clips::unpin_clip,
             clips::delete_clip,
