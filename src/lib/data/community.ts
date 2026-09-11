@@ -19,5 +19,5 @@ export const socialLinks: CommunityLink[] = [
   { label: "Bluesky", url: "https://bsky.app/profile/monoes-me.bsky.social", icon: "🦋" },
   { label: "Reddit", url: "https://www.reddit.com/user/Monoes_me/", icon: "👽" },
   { label: "Mastodon", url: "https://mastodon.social/@monoes", icon: "🐘" },
-  { label: "LinkedIn", url: "https://www.linkedin.com/company/135258453", icon: "💼" },
+  { label: "LinkedIn", url: "https://www.linkedin.com/company/mon0/", icon: "💼" },
 ];
