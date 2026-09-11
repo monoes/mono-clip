@@ -41,8 +41,9 @@ pub fn detect_content_type(content: &str) -> &'static str {
 
 pub fn make_preview(content: &str, max_chars: usize) -> String {
     let trimmed = content.trim();
-    if trimmed.len() <= max_chars {
+    if trimmed.chars().count() <= max_chars {
         return trimmed.to_string();
     }
-    format!("{}…", &trimmed[..max_chars])
+    let truncated: String = trimmed.chars().take(max_chars).collect();
+    format!("{}…", truncated)
 }

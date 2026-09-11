@@ -13,10 +13,12 @@
 
   let editorEl: HTMLDivElement;
   let saveTimeout: ReturnType<typeof setTimeout>;
+  let dirty = false;
 
   $effect(() => {
     if (open && clip && editorEl) {
       editorEl.innerHTML = mdToHtml(clip.content);
+      dirty = false;
     }
   });
 
@@ -27,21 +29,30 @@
   }
 
   function scheduleSave() {
+    dirty = true;
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(async () => {
-      if (!clip) return;
+      if (!clip || !dirty) return;
       const md = htmlToMd(editorEl.innerHTML);
-      const updated = await updateClipContent(clip.id, md);
-      clipsStore.updateItem(updated);
+      try {
+        const updated = await updateClipContent(clip.id, md);
+        clipsStore.updateItem(updated);
+        dirty = false;
+      } catch (err) {
+        console.error("Autosave failed:", err);
+      }
     }, 600);
   }
 
   function close() {
     clearTimeout(saveTimeout);
-    if (clip && editorEl) {
-      updateClipContent(clip.id, htmlToMd(editorEl.innerHTML)).then((updated) =>
-        clipsStore.updateItem(updated)
-      );
+    if (clip && editorEl && dirty) {
+      updateClipContent(clip.id, htmlToMd(editorEl.innerHTML))
+        .then((updated) => {
+          clipsStore.updateItem(updated);
+          dirty = false;
+        })
+        .catch((err) => console.error("Save on close failed:", err));
     }
     open = false;
     onclose?.();

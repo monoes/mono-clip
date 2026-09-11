@@ -1,9 +1,11 @@
+use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use crate::db::queries;
 use crate::state::AppState;
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ExportFolder {
     name: String,
     icon: String,
@@ -13,6 +15,7 @@ struct ExportFolder {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ExportClip {
     folder_name: String,
     content: String,
@@ -24,6 +27,7 @@ struct ExportClip {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ExportPayload {
     format_version: u32,
     exported_at: String,
@@ -32,28 +36,29 @@ struct ExportPayload {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ImportClip {
     folder_name: String,
     content: String,
     content_type: String,
     preview: String,
     is_pinned: bool,
-    #[allow(dead_code)]
     created_at: String,
     image_data: Option<String>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ImportFolder {
     name: String,
     icon: String,
     color: String,
     global_shortcut: Option<String>,
-    #[allow(dead_code)]
     position: i64,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ImportPayload {
     #[allow(dead_code)]
     format_version: u32,
@@ -121,12 +126,21 @@ pub fn export_data(state: State<AppState>) -> Result<String, String> {
 pub fn import_data(state: State<AppState>, json: String) -> Result<ImportSummary, String> {
     let payload: ImportPayload = serde_json::from_str(&json).map_err(|e| e.to_string())?;
     let conn = state.db.lock();
+    // unchecked_transaction takes &self (Connection::transaction takes &mut
+    // self instead, to prevent nesting at compile time) — needed here since
+    // `conn` is a MutexGuard we only ever hold immutably. Transaction derefs
+    // to Connection, so every existing `queries::*(&Connection, ...)` call
+    // below still works unchanged when passed `&tx`. Wrapping both loops in
+    // one transaction means a failure partway through rolls back instead of
+    // leaving a half-imported DB, and the clipboard watcher's own lock
+    // acquisition only blocks for one commit instead of N autocommits.
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
 
     let mut folders_created = 0i64;
     let mut folders_merged = 0i64;
     let mut folder_ids: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
 
-    let existing = queries::get_folders(&conn).map_err(|e| e.to_string())?;
+    let existing = queries::get_folders(&tx).map_err(|e| e.to_string())?;
     for f in &existing {
         folder_ids.insert(f.name.clone(), f.id);
     }
@@ -136,8 +150,14 @@ pub fn import_data(state: State<AppState>, json: String) -> Result<ImportSummary
             folders_merged += 1;
             continue;
         }
-        let created = queries::create_folder(&conn, &f.name, &f.icon, &f.color, f.global_shortcut.as_deref())
+        let created = queries::create_folder(&tx, &f.name, &f.icon, &f.color, f.global_shortcut.as_deref())
             .map_err(|e| e.to_string())?;
+        // create_folder always appends (MAX(position)+1) — restore the
+        // imported position so a Backup restore preserves folder order.
+        tx.execute(
+            "UPDATE folders SET position = ?1 WHERE id = ?2",
+            params![f.position, created.id],
+        ).map_err(|e| e.to_string())?;
         folder_ids.insert(f.name.clone(), created.id);
         folders_created += 1;
     }
@@ -145,33 +165,44 @@ pub fn import_data(state: State<AppState>, json: String) -> Result<ImportSummary
     let mut clips_imported = 0i64;
     for c in &payload.clips {
         let folder_id = *folder_ids.get(&c.folder_name).unwrap_or(&1);
-        let content = if let (Some(data_uri), "image") = (&c.image_data, c.content_type.as_str()) {
+
+        let content = if c.content_type == "image" {
+            let Some(data_uri) = &c.image_data else {
+                continue; // no embedded image data — skip rather than keep a dead foreign path
+            };
             let b64 = data_uri.split(',').nth(1).unwrap_or("");
             let png_bytes = base64_decode(b64);
             // image_store::save_as_png takes decoded RGBA pixels + dimensions,
             // not a raw PNG byte blob — decode first (the `image` crate is
             // already a project dependency).
-            match image::load_from_memory(&png_bytes) {
-                Ok(img) => {
-                    let rgba = img.to_rgba8();
-                    let (w, h) = rgba.dimensions();
-                    crate::clipboard::image_store::save_as_png(rgba.as_raw(), w, h)
-                        .unwrap_or_else(|_| c.content.clone())
-                }
-                Err(_) => c.content.clone(),
-            }
+            let Ok(img) = image::load_from_memory(&png_bytes) else {
+                continue; // corrupt/undecodable image data — skip
+            };
+            let rgba = img.to_rgba8();
+            let (w, h) = rgba.dimensions();
+            let Ok(saved_path) = crate::clipboard::image_store::save_as_png(rgba.as_raw(), w, h) else {
+                continue; // failed to persist the decoded image — skip
+            };
+            saved_path
         } else {
             c.content.clone()
         };
-        queries::insert_clip(&conn, &content, &c.content_type, &c.preview, folder_id, None)
+
+        let inserted = queries::insert_clip(&tx, &content, &c.content_type, &c.preview, folder_id, None)
             .map_err(|e| e.to_string())?;
+        // insert_clip always stamps created_at = datetime('now') — restore
+        // the imported timestamp so a Backup restore preserves history.
+        tx.execute(
+            "UPDATE clip_items SET created_at = ?1 WHERE id = ?2",
+            params![c.created_at, inserted.id],
+        ).map_err(|e| e.to_string())?;
         if c.is_pinned {
-            if let Ok(clip) = queries::get_clip(&conn, conn.last_insert_rowid()) {
-                let _ = queries::set_clip_pinned(&conn, clip.id, true);
-            }
+            let _ = queries::set_clip_pinned(&tx, inserted.id, true);
         }
         clips_imported += 1;
     }
+
+    tx.commit().map_err(|e| e.to_string())?;
 
     Ok(ImportSummary { folders_created, folders_merged, clips_imported })
 }

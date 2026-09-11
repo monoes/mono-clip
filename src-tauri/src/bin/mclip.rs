@@ -151,15 +151,6 @@ fn detect_type(content: &str) -> &'static str {
     "text"
 }
 
-fn make_preview(content: &str, max: usize) -> String {
-    let t = content.trim();
-    if t.len() <= max {
-        t.replace('\n', " ")
-    } else {
-        format!("{}…", &t[..max].replace('\n', " "))
-    }
-}
-
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 fn truncate(s: &str, max: usize) -> String {
@@ -271,7 +262,7 @@ fn cmd_add(content: String, folder: Option<String>) {
     let conn = open_db();
     let folder_id = folder.as_deref().map(|f| resolve_folder_id(&conn, f)).unwrap_or(1);
     let ctype = detect_type(&content);
-    let preview = make_preview(&content, 200);
+    let preview = monoclip_lib::clipboard::detector::make_preview(&content, 200);
 
     conn.execute(
         "INSERT INTO clip_items (content, content_type, preview, folder_id)
@@ -769,7 +760,7 @@ fn mcp_add_clip(content: String, folder: Option<String>) -> Result<String, Strin
     let conn = open_db();
     let folder_id = folder.as_deref().map(|f| resolve_folder_id(&conn, f)).unwrap_or(1);
     let ctype = detect_type(&content);
-    let preview = make_preview(&content, 200);
+    let preview = monoclip_lib::clipboard::detector::make_preview(&content, 200);
     conn.execute(
         "INSERT INTO clip_items (content, content_type, preview, folder_id) VALUES (?1, ?2, ?3, ?4)",
         params![content, ctype, preview, folder_id],
@@ -790,7 +781,7 @@ fn mcp_create_note(folder: Option<String>) -> Result<String, String> {
 
 fn mcp_update_clip_content(id: i64, content: String) -> Result<String, String> {
     let conn = open_db();
-    let preview = make_preview(&content, 200);
+    let preview = monoclip_lib::clipboard::detector::make_preview(&content, 200);
     let affected = conn.execute(
         "UPDATE clip_items SET content = ?1, preview = ?2, updated_at = datetime('now') WHERE id = ?3",
         params![content, preview, id],
