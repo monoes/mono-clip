@@ -694,6 +694,7 @@ struct ImportPayload {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImportSummary {
     folders_created: i64,
     folders_merged: i64,
