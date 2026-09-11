@@ -8,8 +8,9 @@
   interface Props {
     onSettingsClick?: () => void;
     onHelpClick?: () => void;
+    onNewCard?: () => void;
   }
-  let { onSettingsClick, onHelpClick }: Props = $props();
+  let { onSettingsClick, onHelpClick, onNewCard }: Props = $props();
 
   let showNewFolder = $state(false);
   let editingFolder = $state<Folder | null>(null);
@@ -158,6 +159,15 @@
 
   <!-- Bottom actions -->
   <div class="px-2 pt-2 border-t border-white/5 space-y-0.5">
+    <button
+      class="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm
+             text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors"
+      onclick={onNewCard}
+      title="New blank card"
+    >
+      <span class="text-base">✏️</span>
+      <span>New Card</span>
+    </button>
     <button
       class="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm
              text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors"

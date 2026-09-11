@@ -1,17 +1,21 @@
 <script lang="ts">
   import { convertFileSrc } from "@tauri-apps/api/core";
   import type { ClipItem } from "$lib/api/tauri";
-  import { copyToClipboard, deleteClip, pinClip, unpinClip } from "$lib/api/tauri";
+  import { copyToClipboard, deleteClip, pinClip, unpinClip, copyClipStyled } from "$lib/api/tauri";
   import { relativeTime } from "$lib/utils/time";
   import { clipsStore } from "$lib/stores/clips.svelte";
+  import { mdToHtml, mdToPlainText } from "$lib/utils/markdown";
+
+  const penEditableTypes = ["text", "url", "code", "note"];
 
   interface Props {
     clip: ClipItem;
     index?: number;
     onCopy?: (id: number) => void;
+    onEditClip?: (clip: ClipItem) => void;
   }
 
-  let { clip, index = 0, onCopy }: Props = $props();
+  let { clip, index = 0, onCopy, onEditClip }: Props = $props();
 
   let isHovered = $state(false);
   let isFlashing = $derived(clipsStore.flashingId === clip.id);
@@ -55,6 +59,22 @@ async function handleCopy(e: MouseEvent) {
     } catch (err) {
       console.error("Delete failed:", err);
     }
+  }
+
+  function handleEdit(e: MouseEvent) {
+    e.stopPropagation();
+    onEditClip?.(clip);
+  }
+
+  async function handleCopyStyled(e: MouseEvent) {
+    e.stopPropagation();
+    await copyClipStyled(mdToHtml(clip.content), mdToPlainText(clip.content));
+    clipsStore.setFlashing(clip.id);
+  }
+
+  async function handleCopyMd(e: MouseEvent) {
+    e.stopPropagation();
+    await handleCopy(e);
   }
 
   const typeIcon: Record<string, string> = {
@@ -148,6 +168,13 @@ async function handleCopy(e: MouseEvent) {
       class="flex items-center gap-1 transition-opacity duration-100
              {isHovered ? 'opacity-100' : 'opacity-0'}"
     >
+      {#if penEditableTypes.includes(clip.contentType)}
+        <button
+          class="p-1 rounded-md hover:bg-white/15 text-white/50 hover:text-white/90 text-xs transition-colors"
+          onclick={handleEdit}
+          title="Edit"
+        >✏️</button>
+      {/if}
       <button
         class="p-1 rounded-md hover:bg-white/15 text-white/50 hover:text-white/90 text-xs transition-colors"
         onclick={handlePin}
@@ -164,4 +191,17 @@ async function handleCopy(e: MouseEvent) {
       </button>
     </div>
   </div>
+
+  {#if penEditableTypes.includes(clip.contentType)}
+    <div class="flex gap-2 mt-2 pt-2 border-t border-white/6">
+      <button
+        class="flex-1 py-1 rounded-md text-[10px] text-white/50 hover:bg-white/10 hover:text-white/80 transition-colors"
+        onclick={handleCopyStyled}
+      >style</button>
+      <button
+        class="flex-1 py-1 rounded-md text-[10px] text-white/50 hover:bg-white/10 hover:text-white/80 transition-colors"
+        onclick={handleCopyMd}
+      >md</button>
+    </div>
+  {/if}
 </div>

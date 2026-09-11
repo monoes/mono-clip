@@ -10,15 +10,31 @@
   import ClipGrid from "$lib/components/ClipGrid.svelte";
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import HelpPanel from "$lib/components/HelpPanel.svelte";
+  import NoteEditor from "$lib/components/NoteEditor.svelte";
   import Toast from "$lib/components/Toast.svelte";
-  import { hideMainWindow, deleteClip } from "$lib/api/tauri";
+  import { hideMainWindow, deleteClip, createBlankClip } from "$lib/api/tauri";
 
   let showSettings = $state(false);
   let showHelp = $state(false);
+  let editingClip: ClipItem | null = $state(null);
+  let showEditor = $state(false);
   let searchQuery = $state("");
   let toast: ReturnType<typeof Toast> | null = $state(null);
   let searchDebounce: ReturnType<typeof setTimeout>;
   let appVisible = $state(false);
+
+  async function handleNewCard() {
+    const folderId = foldersStore.activeId ?? 1;
+    const clip = await createBlankClip(folderId);
+    clipsStore.prependItem(clip);
+    editingClip = clip;
+    showEditor = true;
+  }
+
+  function openEditor(clip: ClipItem) {
+    editingClip = clip;
+    showEditor = true;
+  }
 
   async function onSearch(q: string) {
     searchQuery = q;
@@ -87,7 +103,7 @@
       if (focused) {
         // Reload to surface any clips captured while the window was hidden
         clipsStore.load(foldersStore.activeId ?? 1);
-      } else if (!showSettings && !showHelp) {
+      } else if (!showSettings && !showHelp && !showEditor) {
         // Small delay to allow click actions to complete
         setTimeout(() => hideMainWindow(), 200);
       }
@@ -104,17 +120,19 @@
         showHelp = false;
       } else if (showSettings) {
         showSettings = false;
+      } else if (showEditor) {
+        showEditor = false;
       } else {
         hideMainWindow();
       }
     }
-    if ((e.key === "f" && e.metaKey) || e.key === "/") {
+    if (((e.key === "f" && e.metaKey) || e.key === "/") && !showEditor) {
       e.preventDefault();
       document.querySelector<HTMLInputElement>('[data-search]')?.focus();
     }
     if (e.key === "Backspace" || e.key === "Delete") {
       const id = clipsStore.hoveredId;
-      if (id !== null && !showSettings && !showHelp) {
+      if (id !== null && !showSettings && !showHelp && !showEditor) {
         e.preventDefault();
         deleteClip(id).then(() => clipsStore.removeItem(id)).catch(() => {});
       }
@@ -139,11 +157,16 @@
 
   <!-- Main content -->
   <div class="flex flex-1 min-h-0">
-    <Sidebar onSettingsClick={() => (showSettings = true)} onHelpClick={() => (showHelp = true)} />
+    <Sidebar
+      onSettingsClick={() => (showSettings = true)}
+      onHelpClick={() => (showHelp = true)}
+      onNewCard={handleNewCard}
+    />
     <main class="flex-1 min-w-0 flex flex-col">
       <ClipGrid
         searchQuery={searchQuery}
         folderName={foldersStore.active?.name ?? ""}
+        onEditClip={openEditor}
       />
     </main>
   </div>
@@ -152,4 +175,5 @@
 <!-- Overlays -->
 <HelpPanel bind:open={showHelp} />
 <SettingsPanel bind:open={showSettings} />
+<NoteEditor clip={editingClip} bind:open={showEditor} />
 <Toast bind:this={toast} />

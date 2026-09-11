@@ -2,12 +2,14 @@
   import ClipCard from "./ClipCard.svelte";
   import EmptyState from "./EmptyState.svelte";
   import { clipsStore } from "$lib/stores/clips.svelte";
+  import type { ClipItem } from "$lib/api/tauri";
 
   interface Props {
     searchQuery?: string;
     folderName?: string;
+    onEditClip?: (clip: ClipItem) => void;
   }
-  let { searchQuery = "", folderName = "" }: Props = $props();
+  let { searchQuery = "", folderName = "", onEditClip }: Props = $props();
 
   function handleCopy(_id: number) {
     // Could show a toast here via event
@@ -34,7 +36,7 @@
     <!-- 2-column grid: row-first order (left→right, top→bottom), newest at top -->
     <div class="grid grid-cols-2 gap-2">
       {#each clipsStore.items as clip, i (clip.id)}
-        <ClipCard {clip} index={i} onCopy={handleCopy} />
+        <ClipCard {clip} index={i} onCopy={handleCopy} onEditClip={onEditClip} />
       {/each}
     </div>
   {/if}
