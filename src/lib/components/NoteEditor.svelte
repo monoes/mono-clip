@@ -37,7 +37,9 @@
       try {
         const updated = await updateClipContent(clip.id, md);
         clipsStore.updateItem(updated);
-        dirty = false;
+        if (editorEl && htmlToMd(editorEl.innerHTML) === md) {
+          dirty = false;
+        }
       } catch (err) {
         console.error("Autosave failed:", err);
       }
@@ -47,10 +49,13 @@
   function close() {
     clearTimeout(saveTimeout);
     if (clip && editorEl && dirty) {
-      updateClipContent(clip.id, htmlToMd(editorEl.innerHTML))
+      const md = htmlToMd(editorEl.innerHTML);
+      updateClipContent(clip.id, md)
         .then((updated) => {
           clipsStore.updateItem(updated);
-          dirty = false;
+          if (editorEl && htmlToMd(editorEl.innerHTML) === md) {
+            dirty = false;
+          }
         })
         .catch((err) => console.error("Save on close failed:", err));
     }
