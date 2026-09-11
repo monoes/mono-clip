@@ -2,6 +2,7 @@
   import { updateClipContent } from "$lib/api/tauri";
   import { mdToHtml, htmlToMd } from "$lib/utils/markdown";
   import type { ClipItem } from "$lib/api/tauri";
+  import { clipsStore } from "$lib/stores/clips.svelte";
 
   interface Props {
     clip: ClipItem | null;
@@ -30,14 +31,17 @@
     saveTimeout = setTimeout(async () => {
       if (!clip) return;
       const md = htmlToMd(editorEl.innerHTML);
-      await updateClipContent(clip.id, md);
+      const updated = await updateClipContent(clip.id, md);
+      clipsStore.updateItem(updated);
     }, 600);
   }
 
   function close() {
     clearTimeout(saveTimeout);
     if (clip && editorEl) {
-      updateClipContent(clip.id, htmlToMd(editorEl.innerHTML));
+      updateClipContent(clip.id, htmlToMd(editorEl.innerHTML)).then((updated) =>
+        clipsStore.updateItem(updated)
+      );
     }
     open = false;
     onclose?.();
