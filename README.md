@@ -101,7 +101,7 @@ That's it. Homebrew handles everything — download, verify checksum, install th
 
 Grab the latest `.dmg` from the [Releases page](https://github.com/nokhodian/mono-clip/releases):
 
-1. Download `MonoClip_0.2.16_aarch64.dmg`
+1. Download `MonoClip_0.2.17_aarch64.dmg`
 2. Open the `.dmg` and drag **MonoClip.app** to `/Applications`
 3. Launch from Spotlight or `/Applications`
 
@@ -113,14 +113,14 @@ Three artifacts ship for `x86_64` on the [Releases page](https://github.com/nokh
 
 ```bash
 # AppImage — portable, self-updating, no install
-chmod +x MonoClip_0.2.16_amd64.AppImage
-./MonoClip_0.2.16_amd64.AppImage
+chmod +x MonoClip_0.2.17_amd64.AppImage
+./MonoClip_0.2.17_amd64.AppImage
 
 # Debian / Ubuntu
-sudo apt install ./MonoClip_0.2.16_amd64.deb
+sudo apt install ./MonoClip_0.2.17_amd64.deb
 
 # Fedora / RHEL / openSUSE
-sudo rpm -i MonoClip-0.2.16-1.x86_64.rpm
+sudo rpm -i MonoClip-0.2.17-1.x86_64.rpm
 ```
 
 > **Pick the AppImage if you want in-app updates.** deb and rpm installs are owned by your package manager, so MonoClip won't overwrite them — it points you at the release page instead.
