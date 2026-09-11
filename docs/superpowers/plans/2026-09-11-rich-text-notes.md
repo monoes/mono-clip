@@ -343,6 +343,13 @@ Create `src/lib/components/NoteEditor.svelte`, matching the existing modal patte
   }
 
   function close() {
+    // Flush synchronously: closing within 600ms of the last keystroke would
+    // otherwise race the debounced save and silently drop the edit — found
+    // during Task 5's review, not present in this plan's original draft.
+    clearTimeout(saveTimeout);
+    if (clip && editorEl) {
+      updateClipContent(clip.id, htmlToMd(editorEl.innerHTML));
+    }
     open = false;
     onclose?.();
   }

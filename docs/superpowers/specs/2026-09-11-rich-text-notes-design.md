@@ -57,8 +57,12 @@ New `NoteEditor.svelte`, modal-styled like `HelpPanel`/`SettingsPanel`
   (`b`/`strong`, `i`/`em`, `ul`/`ol`/`li`, `h1`/`h2`, `p`/`br`, plus bare
   text nodes). Call new command `update_clip_content(id, content)` to
   persist. No save button — this debounced call *is* the save.
-- Closing (Esc / click outside / pen icon again) just closes the modal;
-  nothing further to flush, the debounce has already been saving throughout.
+- Closing (Esc / click outside / pen icon again) flushes any pending
+  debounced save synchronously before closing — closing within 600ms of the
+  last keystroke would otherwise race the debounce and silently drop that
+  edit. (Corrected during Task 5's implementation review; the original
+  draft of this spec incorrectly assumed the debounce would always have
+  already fired by the time the user closes the editor.)
 
 ## Copy modes: style / md
 
