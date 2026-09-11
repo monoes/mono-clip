@@ -20,6 +20,7 @@
   let showEditor = $state(false);
   let searchQuery = $state("");
   let toast: ReturnType<typeof Toast> | null = $state(null);
+  let noteEditorRef: ReturnType<typeof NoteEditor> | null = $state(null);
   let searchDebounce: ReturnType<typeof setTimeout>;
   let appVisible = $state(false);
 
@@ -121,7 +122,7 @@
       } else if (showSettings) {
         showSettings = false;
       } else if (showEditor) {
-        showEditor = false;
+        noteEditorRef?.requestClose();
       } else {
         hideMainWindow();
       }
@@ -175,5 +176,5 @@
 <!-- Overlays -->
 <HelpPanel bind:open={showHelp} />
 <SettingsPanel bind:open={showSettings} />
-<NoteEditor clip={editingClip} bind:open={showEditor} />
+<NoteEditor bind:this={noteEditorRef} clip={editingClip} bind:open={showEditor} />
 <Toast bind:this={toast} />

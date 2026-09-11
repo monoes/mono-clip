@@ -46,6 +46,10 @@
     open = false;
     onclose?.();
   }
+
+  export function requestClose() {
+    close();
+  }
 </script>
 
 {#if open && clip}
