@@ -619,15 +619,9 @@ git commit -m "feat: add dialog and fs plugins for import/export"
 - Consumes: `queries::get_folders` (existing), `crate::clipboard::image_store` (existing — check its exact read/write function names in `src-tauri/src/clipboard/image_store.rs` before writing this task's code, since this plan hasn't verified them; the referenced functions below are named per the spec's description and must be matched to what actually exists there before implementation)
 - Produces: Tauri commands `export_data() -> Result<String, String>`, `import_data(json: String) -> Result<ImportSummary, String>`
 
-- [ ] **Step 1: Check the actual `image_store` API**
+- [ ] **Step 1: Write `backup.rs`**
 
-Run: `grep -n "pub fn" src-tauri/src/clipboard/image_store.rs`
-
-Use whatever function names this reveals in Step 2 below — do not assume names not confirmed by this grep.
-
-- [ ] **Step 2: Write `backup.rs`**
-
-Create `src-tauri/src/commands/backup.rs` (adjust the `image_store::` calls per Step 1's actual output):
+Create `src-tauri/src/commands/backup.rs`:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -777,8 +771,19 @@ pub fn import_data(state: State<AppState>, json: String) -> Result<ImportSummary
         let folder_id = *folder_ids.get(&c.folder_name).unwrap_or(&1);
         let content = if let (Some(data_uri), "image") = (&c.image_data, c.content_type.as_str()) {
             let b64 = data_uri.split(',').nth(1).unwrap_or("");
-            let bytes = base64_decode(b64);
-            crate::clipboard::image_store::save_image_bytes(&bytes).unwrap_or_else(|_| c.content.clone())
+            let png_bytes = base64_decode(b64);
+            // image_store::save_as_png takes decoded RGBA pixels + dimensions,
+            // not a raw PNG byte blob — decode first (the `image` crate is
+            // already a project dependency).
+            match image::load_from_memory(&png_bytes) {
+                Ok(img) => {
+                    let rgba = img.to_rgba8();
+                    let (w, h) = rgba.dimensions();
+                    crate::clipboard::image_store::save_as_png(rgba.as_raw(), w, h)
+                        .unwrap_or_else(|_| c.content.clone())
+                }
+                Err(_) => c.content.clone(),
+            }
         } else {
             c.content.clone()
         };
@@ -836,9 +841,9 @@ fn base64_decode(s: &str) -> Vec<u8> {
 }
 ```
 
-This task assumes `queries::create_folder` and `crate::clipboard::image_store::save_image_bytes` exist with signatures compatible with the calls above — **before writing this file, grep both** (`grep -n "pub fn create_folder" src-tauri/src/db/queries.rs` and Step 1's `image_store` grep) and adjust argument order/names to match reality. If `save_image_bytes` doesn't exist under that name, check what write function `image_store.rs` does expose (e.g. it may take a `DynamicImage` rather than raw bytes) and adapt — decode the PNG bytes with the `image` crate (already a dependency) first if so.
+Both `queries::create_folder(conn, name: &str, icon: &str, color: &str, shortcut: Option<&str>) -> Result<Folder>` and `image_store::save_as_png(rgba: &[u8], width: u32, height: u32) -> Result<String>` have been confirmed against the actual source (see the ledger's pre-flight scan) — the code above already calls them with the correct shapes. No further signature-hunting needed for this task.
 
-- [ ] **Step 3: Wire up the module and commands**
+- [ ] **Step 2: Wire up the module and commands**
 
 Add to `src-tauri/src/commands/mod.rs`: `pub mod backup;`
 
@@ -849,9 +854,9 @@ Add to `main.rs`'s `generate_handler!`, in a new `// Backup` section:
             backup::import_data,
 ```
 
-- [ ] **Step 4: Verify and commit**
+- [ ] **Step 3: Verify and commit**
 
-Run: `cd src-tauri && cargo check` — expect no errors. Fix any signature mismatches surfaced against the real `create_folder`/`image_store` APIs before moving on.
+Run: `cd src-tauri && cargo check` — expect no errors.
 
 ```bash
 git add src-tauri/src/commands/backup.rs src-tauri/src/commands/mod.rs src-tauri/src/main.rs
