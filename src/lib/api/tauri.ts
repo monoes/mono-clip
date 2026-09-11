@@ -95,6 +95,14 @@ export const copyToClipboard = (id: number) => invoke<void>("copy_to_clipboard",
 export const saveCurrentClipboardToFolder = (folderId: number) =>
   invoke<ClipItem>("save_current_clipboard_to_folder", { folderId });
 
+export const createBlankClip = (folderId: number) => invoke<ClipItem>("create_blank_clip", { folderId });
+
+export const updateClipContent = (id: number, content: string) =>
+  invoke<ClipItem>("update_clip_content", { id, content });
+
+export const copyClipStyled = (html: string, plainText: string) =>
+  invoke<void>("copy_clip_styled", { html, plainText });
+
 // ─── Settings Commands ─────────────────────────────────────────────────────────
 export const getSettings = () => invoke<Settings>("get_settings");
 export const updateSettings = (patch: SettingsPatch) => invoke<Settings>("update_settings", { patch });
