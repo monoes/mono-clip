@@ -35,6 +35,10 @@
   }
 
   function close() {
+    clearTimeout(saveTimeout);
+    if (clip && editorEl) {
+      updateClipContent(clip.id, htmlToMd(editorEl.innerHTML));
+    }
     open = false;
     onclose?.();
   }
