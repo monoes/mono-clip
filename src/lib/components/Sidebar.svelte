@@ -165,7 +165,7 @@
       onclick={onNewCard}
       title="New blank card"
     >
-      <span class="text-base">✏️</span>
+      <span class="text-base">+</span>
       <span>New Card</span>
     </button>
     <button

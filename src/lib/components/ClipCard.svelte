@@ -19,6 +19,9 @@
 
   let isHovered = $state(false);
   let isFlashing = $derived(clipsStore.flashingId === clip.id);
+  let isMenuOpen = $derived(clipsStore.contextMenuId === clip.id);
+  let menuX = $state(0);
+  let menuY = $state(0);
 
   // For image clips, convert the stored file path to a WebView-accessible URL
   let imageSrc = $derived(
@@ -72,9 +75,23 @@ async function handleCopy(e: MouseEvent) {
     clipsStore.setFlashing(clip.id);
   }
 
-  async function handleCopyMd(e: MouseEvent) {
+  function openContextMenu(e: MouseEvent) {
+    e.preventDefault();
     e.stopPropagation();
-    await handleCopy(e);
+    menuX = e.clientX;
+    menuY = e.clientY;
+    clipsStore.contextMenuId = clip.id;
+  }
+
+  function closeContextMenu() {
+    clipsStore.contextMenuId = null;
+  }
+
+  function menuAction(handler: (e: MouseEvent) => void) {
+    return (e: MouseEvent) => {
+      handler(e);
+      closeContextMenu();
+    };
   }
 
   const typeIcon: Record<string, string> = {
@@ -110,6 +127,7 @@ async function handleCopy(e: MouseEvent) {
   onmouseenter={() => { isHovered = true; clipsStore.hoveredId = clip.id; }}
   onmouseleave={() => { isHovered = false; if (clipsStore.hoveredId === clip.id) clipsStore.hoveredId = null; }}
   onclick={handleCopy}
+  oncontextmenu={openContextMenu}
   role="button"
   tabindex="0"
   onkeydown={(e) => e.key === "Enter" && handleCopy(e as unknown as MouseEvent)}
@@ -191,17 +209,62 @@ async function handleCopy(e: MouseEvent) {
       </button>
     </div>
   </div>
-
-  {#if penEditableTypes.includes(clip.contentType)}
-    <div class="flex gap-2 mt-2 pt-2 border-t border-white/6">
-      <button
-        class="flex-1 py-1 rounded-md text-[10px] text-white/50 hover:bg-white/10 hover:text-white/80 transition-colors"
-        onclick={handleCopyStyled}
-      >style</button>
-      <button
-        class="flex-1 py-1 rounded-md text-[10px] text-white/50 hover:bg-white/10 hover:text-white/80 transition-colors"
-        onclick={handleCopyMd}
-      >md</button>
-    </div>
-  {/if}
 </div>
+
+<!-- Right-click context menu -->
+{#if isMenuOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed z-50 bg-[#2c2c2e]/95 backdrop-blur-xl rounded-xl shadow-2xl
+           border border-white/10 overflow-hidden py-1 w-44"
+    style="left: {menuX}px; top: {menuY}px;"
+  >
+    <button
+      class="w-full px-3 py-2 text-sm text-left text-white/80 hover:bg-white/10
+             flex items-center gap-2"
+      onclick={menuAction(handleCopy)}
+    >
+      📋 Copy
+    </button>
+    {#if penEditableTypes.includes(clip.contentType)}
+      <button
+        class="w-full px-3 py-2 text-sm text-left text-white/80 hover:bg-white/10
+               flex items-center gap-2"
+        onclick={menuAction(handleCopyStyled)}
+      >
+        🎨 Copy as Style
+      </button>
+      <button
+        class="w-full px-3 py-2 text-sm text-left text-white/80 hover:bg-white/10
+               flex items-center gap-2"
+        onclick={menuAction(handleEdit)}
+      >
+        ✏️ Edit
+      </button>
+    {/if}
+    <button
+      class="w-full px-3 py-2 text-sm text-left text-white/80 hover:bg-white/10
+             flex items-center gap-2"
+      onclick={menuAction(handlePin)}
+    >
+      {clip.isPinned ? "📍 Unpin" : "📌 Pin"}
+    </button>
+    <div class="border-t border-white/5 my-1"></div>
+    <button
+      class="w-full px-3 py-2 text-sm text-left text-red-400 hover:bg-red-500/10
+             flex items-center gap-2"
+      onclick={menuAction(handleDelete)}
+    >
+      🗑️ Delete
+    </button>
+  </div>
+  <!-- Dismiss backdrop -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 z-40"
+    oncontextmenu={(e) => e.preventDefault()}
+    onclick={closeContextMenu}
+  ></div>
+{/if}

@@ -9,6 +9,7 @@ class ClipsStore {
   activeFolder = $state<number | null>(1);
   flashingId = $state<number | null>(null);
   hoveredId = $state<number | null>(null);
+  contextMenuId = $state<number | null>(null);
 
   async load(folderId?: number, search?: string) {
     this.isLoading = true;
